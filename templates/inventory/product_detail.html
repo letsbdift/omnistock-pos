@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+{% block title %}{{ product.name }} - OmniStock{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'inventory:product_list' %}" class="text-decoration-none text-muted small">
+        <i class="bi bi-arrow-left"></i> Back to Inventory
+    </a>
+    <div class="d-flex justify-content-between align-items-center mt-2">
+        <h3 class="fw-bold mb-0">{{ product.name }}</h3>
+        <div>
+            <a href="{% url 'inventory:product_update' product.pk %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-pencil me-1"></i> Edit Product
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Left Column: Details -->
+    <div class="col-lg-7">
+        <div class="card card-custom p-4 bg-white mb-4">
+            <h5 class="fw-bold mb-3 border-bottom pb-2">Product Specifications</h5>
+            <div class="row g-3">
+                <div class="col-sm-6">
+                    <span class="text-muted small d-block">SKU</span>
+                    <strong class="fs-6 font-monospace">{{ product.sku }}</strong>
+                </div>
+                <div class="col-sm-6">
+                    <span class="text-muted small d-block">Barcode</span>
+                    <strong class="fs-6 font-monospace">{{ product.barcode|default:"N/A" }}</strong>
+                </div>
+                <div class="col-sm-6">
+                    <span class="text-muted small d-block">Category</span>
+                    <span>{{ product.category.name|default:"Uncategorized" }}</span>
+                </div>
+                <div class="col-sm-6">
+                    <span class="text-muted small d-block">Brand</span>
+                    <span>{{ product.brand.name|default:"N/A" }}</span>
+                </div>
+                <div class="col-sm-6">
+                    <span class="text-muted small d-block">Warehouse Location</span>
+                    <span><i class="bi bi-geo-alt me-1 text-danger"></i>{{ product.warehouse_location }}</span>
+                </div>
+                <div class="col-sm-6">
+                    <span class="text-muted small d-block">Condition / Status</span>
+                    <span class="badge bg-light text-dark border">{{ product.condition }}</span>
+                    <span class="badge {% if product.status == 'Ready to Sell' %}bg-success{% else %}bg-secondary{% endif %}">{{ product.status }}</span>
+                </div>
+            </div>
+
+            <h5 class="fw-bold mt-4 mb-3 border-bottom pb-2">Financials & Margin</h5>
+            <div class="row g-3">
+                <div class="col-sm-4">
+                    <span class="text-muted small d-block">Unit Cost</span>
+                    <h5 class="fw-bold text-dark">₹{{ product.unit_cost }}</h5>
+                </div>
+                <div class="col-sm-4">
+                    <span class="text-muted small d-block">Selling Price</span>
+                    <h5 class="fw-bold text-primary">₹{{ product.selling_price }}</h5>
+                </div>
+                <div class="col-sm-4">
+                    <span class="text-muted small d-block">Profit Margin</span>
+                    <h5 class="fw-bold text-success">{{ product.profit_margin }}% (₹{{ product.unit_profit }})</h5>
+                </div>
+            </div>
+
+            {% if product.notes %}
+            <div class="mt-4 border-top pt-3">
+                <span class="text-muted small d-block">Notes:</span>
+                <p class="small text-secondary mb-0">{{ product.notes }}</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Stock Movements Table -->
+        <div class="card card-custom bg-white">
+            <div class="card-header bg-white py-3 border-bottom">
+                <h6 class="fw-bold mb-0"><i class="bi bi-clock-history me-2 text-primary"></i>Recent Stock Movements</h6>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Qty</th>
+                            <th>Balance</th>
+                            <th>Reference</th>
+                            <th>User</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in movements %}
+                        <tr>
+                            <td class="small text-muted">{{ m.timestamp|date:"M d, H:i" }}</td>
+                            <td>
+                                <span class="badge {% if m.movement_type == 'intake' %}bg-success{% elif m.movement_type == 'sale' %}bg-primary{% elif m.movement_type == 'return' %}bg-info{% else %}bg-secondary{% endif %}">
+                                    {{ m.get_movement_type_display }}
+                                </span>
+                            </td>
+                            <td class="fw-bold {% if m.quantity > 0 %}text-success{% else %}text-danger{% endif %}">
+                                {% if m.quantity > 0 %}+{% endif %}{{ m.quantity }}
+                            </td>
+                            <td>{{ m.new_quantity }}</td>
+                            <td class="small">{{ m.reference|default:"-" }}</td>
+                            <td class="small text-muted">{{ m.user.username|default:"System" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-3 text-muted small">No movements recorded yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Stock Card & Quick Adjust -->
+    <div class="col-lg-5">
+        <div class="card card-custom p-4 bg-white mb-4 text-center">
+            <span class="text-muted small text-uppercase fw-bold">Current Stock Level</span>
+            <div class="display-3 fw-bold my-2 {% if product.quantity <= 0 %}text-danger{% elif product.is_low_stock %}text-warning{% else %}text-success{% endif %}">
+                {{ product.quantity }}
+            </div>
+            <span class="text-muted">{{ product.stock_unit }} available in {{ product.warehouse_location }}</span>
+            {% if product.is_low_stock %}
+            <div class="alert alert-warning py-2 small mt-3 mb-0">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i> Stock is at or below alert level ({{ product.min_stock_alert_level }})
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="card card-custom p-4 bg-white shadow-sm">
+            <h5 class="fw-bold mb-3"><i class="bi bi-sliders me-2 text-primary"></i>Quick Stock Adjustment</h5>
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Adjustment Qty (+ to add, - to subtract)</label>
+                    <input type="number" name="delta" class="form-control form-control-lg" required placeholder="e.g. 10 or -2">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Movement Reason</label>
+                    <select name="movement_type" class="form-select">
+                        <option value="intake">Additional Intake (+)</option>
+                        <option value="adjustment" selected>Manual Adjustment</option>
+                        <option value="damaged">Damaged / Write-off (-)</option>
+                        <option value="return">Customer Return (+)</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Audit Notes</label>
+                    <textarea name="notes" class="form-control" rows="2" placeholder="e.g. Received weekly restock parcel"></textarea>
+                </div>
+                <button type="submit" class="btn btn-dark w-100 fw-bold">
+                    <i class="bi bi-check2-circle me-1"></i> Apply Adjustment
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

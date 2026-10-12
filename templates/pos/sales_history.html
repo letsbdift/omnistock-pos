@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Sales History - OmniStock POS{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-0">Sales & Order History</h3>
+        <p class="text-muted small mb-0">Review past transactions, reprints, and refund/void operations</p>
+    </div>
+    <a href="{% url 'pos:terminal' %}" class="btn btn-primary">
+        <i class="bi bi-cart3 me-1"></i> Open POS Register
+    </a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3">
+        <div class="card card-custom p-3 bg-white">
+            <span class="text-muted small fw-medium">Total Orders</span>
+            <h3 class="fw-bold mt-1 mb-0">{{ sales|length }}</h3>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card card-custom p-3 bg-white">
+            <span class="text-muted small fw-medium">Total Revenue</span>
+            <h3 class="fw-bold mt-1 mb-0 text-success">₹{{ total_revenue|floatformat:2|intcomma }}</h3>
+        </div>
+    </div>
+</div>
+
+<div class="card card-custom bg-white overflow-hidden shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Invoice #</th>
+                    <th>Date & Time</th>
+                    <th>Cashier</th>
+                    <th>Customer</th>
+                    <th>Items</th>
+                    <th>Payment Method</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sale in sales %}
+                <tr>
+                    <td>
+                        <a href="{% url 'pos:receipt' sale.pk %}" class="font-monospace fw-bold text-decoration-none">
+                            {{ sale.invoice_number }}
+                        </a>
+                    </td>
+                    <td class="small text-muted">{{ sale.created_at|date:"M d, Y H:i" }}</td>
+                    <td>{{ sale.cashier.username|default:"Admin" }}</td>
+                    <td>
+                        {{ sale.customer_name }}
+                        {% if sale.customer_phone %}<small class="text-muted d-block">{{ sale.customer_phone }}</small>{% endif %}
+                    </td>
+                    <td><span class="badge bg-light text-dark border">{{ sale.items.count }} items</span></td>
+                    <td><span class="badge bg-secondary-subtle text-secondary">{{ sale.get_payment_method_display }}</span></td>
+                    <td class="fw-bold text-dark">₹{{ sale.total_amount|floatformat:2 }}</td>
+                    <td>
+                        <span class="badge {% if sale.status == 'COMPLETED' %}bg-success{% else %}bg-danger{% endif %} badge-pos">
+                            {{ sale.status }}
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        <div class="btn-group btn-group-sm">
+                            <a href="{% url 'pos:receipt' sale.pk %}" class="btn btn-outline-primary" title="View & Print Receipt">
+                                <i class="bi bi-printer"></i>
+                            </a>
+                            {% if sale.status == 'COMPLETED' %}
+                            <a href="{% url 'pos:void_sale' sale.pk %}" class="btn btn-outline-danger" title="Void sale & restock items" onclick="return confirm('Void invoice {{ sale.invoice_number }} and restore inventory items?')">
+                                <i class="bi bi-arrow-counterclockwise"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center py-5 text-muted">
+                        <i class="bi bi-receipt display-4 d-block mb-3"></i>
+                        <h5>No sales processed yet</h5>
+                        <a href="{% url 'pos:terminal' %}" class="btn btn-primary btn-sm mt-2">Go to POS Register</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

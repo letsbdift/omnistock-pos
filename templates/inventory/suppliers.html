@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Suppliers Directory - OmniStock{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-0">Supplier & Vendor Accounts</h3>
+        <p class="text-muted small mb-0">Manage restock distributors, buyback sources, and vendor contacts</p>
+    </div>
+    <a href="{% url 'inventory:product_list' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Inventory Catalog
+    </a>
+</div>
+
+<div class="card card-custom bg-white shadow-sm overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Supplier Name</th>
+                    <th>Contact Person</th>
+                    <th>Phone</th>
+                    <th>Email</th>
+                    <th>GSTIN</th>
+                    <th>Supplied Products</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in suppliers %}
+                <tr>
+                    <td class="fw-bold text-dark">{{ s.name }}</td>
+                    <td>{{ s.contact_person|default:"-" }}</td>
+                    <td><a href="tel:{{ s.phone }}" class="text-decoration-none">{{ s.phone|default:"-" }}</a></td>
+                    <td>{{ s.email|default:"-" }}</td>
+                    <td><code>{{ s.gstin|default:"-" }}</code></td>
+                    <td><span class="badge bg-primary-subtle text-primary">{{ s.products.count }} items</span></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-5 text-muted">
+                        <i class="bi bi-truck display-4 d-block mb-2"></i>
+                        <h5>No suppliers recorded yet</h5>
+                        <p class="small">Vendors will populate automatically from Purchase Orders and Restock imports.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

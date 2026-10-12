@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}Register - OmniStock POS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-md-6 col-lg-5">
+        <div class="card card-custom p-4 shadow-sm bg-white">
+            <div class="text-center mb-4">
+                <i class="bi bi-person-plus-fill text-primary display-5"></i>
+                <h4 class="fw-bold mt-2">New User Registration</h4>
+                <p class="text-muted small">Create credentials for staff or cashier</p>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                {% for field in form %}
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}
+                    <div class="form-text small">{{ field.help_text }}</div>
+                    {% endif %}
+                    {% for error in field.errors %}
+                    <div class="text-danger small mt-1">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+                <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold mt-3">
+                    <i class="bi bi-check-circle me-1"></i> Register Account
+                </button>
+            </form>
+            <div class="text-center mt-3 border-top pt-3">
+                <span class="text-muted small">Already have an account?</span>
+                <a href="{% url 'accounts:login' %}" class="small fw-semibold text-decoration-none ms-1">Login here</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Style inputs with Bootstrap classes
+    document.querySelectorAll('input, select').forEach(el => {
+        if (!el.classList.contains('form-control') && !el.classList.contains('form-select')) {
+            el.classList.add(el.tagName.toLowerCase() === 'select' ? 'form-select' : 'form-control');
+        }
+    });
+</script>
+{% endblock %}

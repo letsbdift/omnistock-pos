@@ -1,0 +1,1 @@
+# OmniStock Core package

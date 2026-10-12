@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Barcode Price Labels - OmniStock{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        #printableBarcodeSheet, #printableBarcodeSheet * {
+            visibility: visible;
+        }
+        #printableBarcodeSheet {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+        }
+        .no-print {
+            display: none !important;
+        }
+    }
+    .barcode-label {
+        border: 1px dashed #cbd5e1;
+        padding: 10px;
+        background: #fff;
+        border-radius: 6px;
+        text-align: center;
+        page-break-inside: avoid;
+    }
+    .barcode-lines {
+        font-family: monospace;
+        letter-spacing: 4px;
+        font-weight: bold;
+        background: repeating-linear-gradient(90deg, #000, #000 2px, #fff 2px, #fff 4px);
+        height: 38px;
+        margin: 6px auto;
+        width: 80%;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 no-print">
+    <div>
+        <h3 class="fw-bold mb-0">Product Barcode & Price Tags</h3>
+        <p class="text-muted small mb-0">Generate sticker labels for retail shelves, boxes, and smartphone devices</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'inventory:product_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Inventory Catalog
+        </a>
+        <button class="btn btn-success fw-bold" onclick="window.print()">
+            <i class="bi bi-printer-fill me-1"></i> Print Barcode Sheet
+        </button>
+    </div>
+</div>
+
+<div id="printableBarcodeSheet">
+    <div class="row g-3">
+        {% for p in products %}
+        <div class="col-sm-6 col-md-4 col-lg-3">
+            <div class="barcode-label shadow-sm">
+                <div class="fw-bold text-dark small text-truncate" title="{{ p.name }}">{{ p.name }}</div>
+                {% if p.ram or p.rom or p.grade != 'N/A' %}
+                <div class="extra-small text-muted" style="font-size: 0.72rem;">
+                    {% if p.ram %}{{ p.ram }}/{% endif %}{{ p.rom }} &bull; Grade {{ p.grade }}
+                </div>
+                {% endif %}
+                
+                <!-- Simulated Code128 Barcode Graphic -->
+                <div class="barcode-lines"></div>
+                <div class="font-monospace text-muted extra-small" style="font-size: 0.75rem;">
+                    {{ p.barcode|default:p.sku }}
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mt-2 pt-1 border-top">
+                    <span class="badge bg-light text-dark border extra-small">SKU: {{ p.sku }}</span>
+                    <strong class="text-primary fs-6">₹{{ p.selling_price|floatformat:2 }}</strong>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center py-5 text-muted">
+            <h5>No products available for barcode generation.</h5>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

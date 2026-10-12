@@ -1,0 +1,566 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}POS Register - OmniStock{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pos-product-card {
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        border: 1px solid #e2e8f0;
+    }
+    .pos-product-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        border-color: #3b82f6;
+    }
+    .cart-pane {
+        position: sticky;
+        top: 1rem;
+        max-height: calc(100vh - 5rem);
+        display: flex;
+        flex-direction: column;
+    }
+    .cart-items-scroll {
+        overflow-y: auto;
+        flex-grow: 1;
+        max-height: 340px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <!-- Left: Catalog & Search -->
+    <div class="col-lg-7 col-xl-8">
+        <!-- Top Search Bar & Scanner Input -->
+        <div class="card card-custom p-3 bg-white mb-3">
+            <div class="row g-2">
+                <div class="col-md-5">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                        <input type="text" id="searchInput" class="form-control" placeholder="Search product, RAM, grade..." autofocus>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text bg-primary text-white"><i class="bi bi-upc-scan"></i></span>
+                        <input type="text" id="barcodeInput" class="form-control" placeholder="Barcode scanner...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="input-group">
+                        <span class="input-group-text bg-dark text-white"><i class="bi bi-phone"></i></span>
+                        <input type="text" id="imeiInput" class="form-control" placeholder="Scan IMEI...">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if held_sales %}
+        <!-- Held Orders Notification -->
+        <div class="alert alert-warning py-2 mb-3 d-flex justify-content-between align-items-center">
+            <span class="small"><strong><i class="bi bi-pause-circle me-1"></i>Parked Orders:</strong> You have {{ held_sales.count }} held cart(s).</span>
+            <div class="btn-group btn-group-sm">
+                {% for hs in held_sales %}
+                <button class="btn btn-outline-dark btn-sm py-0" onclick="resumeHeldSale({{ hs.id }})">
+                    Resume {{ hs.invoice_number }} (₹{{ hs.total_amount|floatformat:0 }})
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Product Cards Grid -->
+        <div class="row g-3" id="productsGrid">
+            {% for p in products %}
+            <div class="col-6 col-sm-4 col-md-3 product-item" 
+                 data-id="{{ p.id }}" 
+                 data-name="{{ p.name }}" 
+                 data-sku="{{ p.sku }}" 
+                 data-barcode="{{ p.barcode|default:'' }}" 
+                 data-price="{{ p.selling_price }}" 
+                 data-stock="{{ p.quantity }}"
+                 onclick="addToCart({{ p.id }}, '{{ p.name|escapejs }}', '{{ p.sku|escapejs }}', {{ p.selling_price }}, {{ p.quantity }})">
+                <div class="card pos-product-card h-100 bg-white p-2 rounded-3 text-center">
+                    <div class="position-relative mb-2">
+                        {% if p.image_url %}
+                        <img src="{{ p.image_url }}" alt="" class="rounded w-100" style="height: 100px; object-fit: cover;">
+                        {% else %}
+                        <div class="bg-light rounded d-flex align-items-center justify-content-center text-muted w-100" style="height: 100px;">
+                            <i class="bi bi-box fs-1"></i>
+                        </div>
+                        {% endif %}
+                        <span class="badge bg-dark bg-opacity-75 position-absolute top-0 end-0 m-1 small">
+                            {{ p.quantity }} {{ p.stock_unit }}
+                        </span>
+                        {% if p.grade != 'N/A' %}
+                        <span class="badge bg-info position-absolute top-0 start-0 m-1 extra-small">
+                            {{ p.grade }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="fw-semibold text-truncate small mb-1" title="{{ p.name }}">{{ p.name }}</div>
+                    {% if p.ram or p.rom %}
+                    <div class="text-muted extra-small" style="font-size: 0.72rem;">{{ p.ram }}/{{ p.rom }}</div>
+                    {% else %}
+                    <div class="text-muted extra-small" style="font-size: 0.72rem;">{{ p.sku }}</div>
+                    {% endif %}
+                    <div class="fw-bold text-primary fs-6 mt-1">₹{{ p.selling_price|floatformat:2 }}</div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12 text-center py-5 text-muted">
+                <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                <h5>No available products to sell</h5>
+                <a href="{% url 'inventory:import_csv' %}" class="btn btn-primary btn-sm mt-2">Import Inventory</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Right: POS Checkout Terminal -->
+    <div class="col-lg-5 col-xl-4">
+        <div class="card card-custom cart-pane bg-white p-3 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                <div>
+                    <h5 class="fw-bold mb-0"><i class="bi bi-cart3 text-primary me-2"></i>Active Cart</h5>
+                    <small class="text-muted">Cashier: {{ user.username }}</small>
+                </div>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-warning btn-sm" onclick="parkCurrentSale()" title="Park/Hold Order">
+                        <i class="bi bi-pause-fill"></i> Park
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="clearCart()" title="Clear Cart">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Customer Search / Quick Select -->
+            <div class="mb-2">
+                <div class="input-group input-group-sm mb-1">
+                    <span class="input-group-text bg-white"><i class="bi bi-person"></i></span>
+                    <input type="text" id="customerPhoneSearch" class="form-control" placeholder="Customer phone / name..." oninput="searchCustomer(this.value)">
+                    <button class="btn btn-outline-secondary" onclick="openAddCustomerModal()" title="Add Customer">+</button>
+                </div>
+                <div id="customerSelectedBadge" class="d-none small text-success fw-medium">
+                    <i class="bi bi-check-circle-fill me-1"></i> <span id="customerSelectedName"></span> (<span id="customerSelectedPhone"></span>)
+                    <button class="btn btn-link btn-sm p-0 ms-1 text-danger text-decoration-none" onclick="clearSelectedCustomer()">&times;</button>
+                </div>
+            </div>
+
+            <!-- Cart Items List -->
+            <div class="cart-items-scroll border-top border-bottom py-2" id="cartContainer">
+                <div class="text-center text-muted py-5 small" id="emptyCartNotice">
+                    <i class="bi bi-basket3 display-5 d-block mb-2 text-secondary"></i>
+                    Cart is empty. Tap products or scan barcode/IMEI to add.
+                </div>
+                <div id="cartItemsList"></div>
+            </div>
+
+            <!-- Calculation Summary -->
+            <div class="pt-2">
+                <div class="d-flex justify-content-between text-muted small mb-1">
+                    <span>Subtotal:</span>
+                    <span id="subtotalDisplay">₹0.00</span>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">GST %</span>
+                            <select id="taxPercent" class="form-select" onchange="renderCart()">
+                                <option value="0">0% (Exempt)</option>
+                                <option value="5">5% GST</option>
+                                <option value="12">12% GST</option>
+                                <option value="18" selected>18% GST</option>
+                                <option value="28">28% GST</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">Disc ₹</span>
+                            <input type="number" id="discountAmount" class="form-control" value="0" min="0" onchange="renderCart()">
+                        </div>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center fw-bold fs-4 text-dark mb-2">
+                    <span>Total:</span>
+                    <span class="text-primary" id="totalDisplay">₹0.00</span>
+                </div>
+
+                <!-- Payment Method -->
+                <div class="mb-2">
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="paymentMethod" id="payCash" value="CASH" checked onchange="toggleSplitInputs()">
+                        <label class="btn btn-outline-secondary btn-sm" for="payCash"><i class="bi bi-cash me-1"></i>Cash</label>
+
+                        <input type="radio" class="btn-check" name="paymentMethod" id="payUPI" value="UPI" onchange="toggleSplitInputs()">
+                        <label class="btn btn-outline-secondary btn-sm" for="payUPI"><i class="bi bi-qr-code me-1"></i>UPI</label>
+
+                        <input type="radio" class="btn-check" name="paymentMethod" id="payCard" value="CARD" onchange="toggleSplitInputs()">
+                        <label class="btn btn-outline-secondary btn-sm" for="payCard"><i class="bi bi-credit-card me-1"></i>Card</label>
+
+                        <input type="radio" class="btn-check" name="paymentMethod" id="paySplit" value="SPLIT" onchange="toggleSplitInputs()">
+                        <label class="btn btn-outline-secondary btn-sm" for="paySplit"><i class="bi bi-pie-chart me-1"></i>Split</label>
+                    </div>
+                </div>
+
+                <!-- Split Payment Inputs -->
+                <div id="splitInputsContainer" class="d-none row g-2 mb-2">
+                    <div class="col-6">
+                        <input type="number" id="splitCashInput" class="form-control form-control-sm" placeholder="Cash Amount ₹">
+                    </div>
+                    <div class="col-6">
+                        <input type="number" id="splitOnlineInput" class="form-control form-control-sm" placeholder="UPI/Card Amount ₹">
+                    </div>
+                </div>
+
+                <!-- Checkout Button -->
+                <button class="btn btn-success btn-lg w-100 fw-bold shadow-sm" id="btnCheckout" onclick="processCheckout('checkout')">
+                    <i class="bi bi-printer me-1"></i> Complete & Print Receipt
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Quick Add Customer -->
+<div class="modal fade" id="modalAddCustomer" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold">Add New Customer Profile</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Customer Name *</label>
+                    <input type="text" id="newCustName" class="form-control" required placeholder="e.g. Ramesh Kumar">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Mobile Phone *</label>
+                    <input type="tel" id="newCustPhone" class="form-control" required placeholder="e.g. 9876543210">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">GSTIN (Optional for B2B Invoice)</label>
+                    <input type="text" id="newCustGstin" class="form-control" placeholder="22AAAAA0000A1Z5">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm fw-bold" onclick="saveNewCustomer()">Save Customer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let cart = [];
+    let selectedCustomer = null;
+
+    // Filter products by search bar
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+        const query = e.target.value.toLowerCase();
+        document.querySelectorAll('.product-item').forEach(item => {
+            const name = item.dataset.name.toLowerCase();
+            const sku = item.dataset.sku.toLowerCase();
+            const barcode = item.dataset.barcode.toLowerCase();
+            if (name.includes(query) || sku.includes(query) || barcode.includes(query)) {
+                item.style.display = '';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+
+    // Barcode scanner input handling
+    document.getElementById('barcodeInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const barcode = this.value.trim();
+            if (!barcode) return;
+            fetch(`/pos/api/search/?barcode=${encodeURIComponent(barcode)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.products && data.products.length > 0) {
+                        const p = data.products[0];
+                        addToCart(p.id, p.name, p.sku, p.price, p.stock);
+                    } else {
+                        alert("Barcode not found: " + barcode);
+                    }
+                });
+            this.value = '';
+        }
+    });
+
+    // IMEI scanner input handling
+    document.getElementById('imeiInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const imei = this.value.trim();
+            if (!imei) return;
+            fetch(`/pos/api/search/?imei=${encodeURIComponent(imei)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.products && data.products.length > 0) {
+                        const p = data.products[0];
+                        addToCart(p.id, p.name, p.sku, p.price, p.stock, p.imei);
+                    } else {
+                        alert("Device with IMEI not found in stock: " + imei);
+                    }
+                });
+            this.value = '';
+        }
+    });
+
+    function addToCart(id, name, sku, price, stock, imei = '') {
+        const existing = cart.find(i => i.id === id && i.imei === imei);
+        if (existing) {
+            if (existing.quantity >= stock) {
+                alert(`Cannot add more. Only ${stock} available in stock.`);
+                return;
+            }
+            existing.quantity += 1;
+        } else {
+            if (stock <= 0) {
+                alert("This item is currently out of stock.");
+                return;
+            }
+            cart.push({ id, name, sku, price, quantity: 1, maxStock: stock, imei: imei });
+        }
+        renderCart();
+    }
+
+    function updateQty(idx, delta) {
+        const item = cart[idx];
+        if (!item) return;
+
+        item.quantity += delta;
+        if (item.quantity > item.maxStock) {
+            alert(`Maximum available stock reached (${item.maxStock})`);
+            item.quantity = item.maxStock;
+        } else if (item.quantity <= 0) {
+            cart.splice(idx, 1);
+        }
+        renderCart();
+    }
+
+    function removeItem(idx) {
+        cart.splice(idx, 1);
+        renderCart();
+    }
+
+    function clearCart() {
+        if (cart.length > 0 && confirm("Are you sure you want to clear the active cart?")) {
+            cart = [];
+            renderCart();
+        }
+    }
+
+    function toggleSplitInputs() {
+        const isSplit = document.getElementById('paySplit').checked;
+        const container = document.getElementById('splitInputsContainer');
+        if (isSplit) {
+            container.classList.remove('d-none');
+        } else {
+            container.classList.add('d-none');
+        }
+    }
+
+    function renderCart() {
+        const container = document.getElementById('cartItemsList');
+        const emptyNotice = document.getElementById('emptyCartNotice');
+
+        if (cart.length === 0) {
+            container.innerHTML = '';
+            emptyNotice.style.display = 'block';
+            document.getElementById('subtotalDisplay').innerText = '₹0.00';
+            document.getElementById('totalDisplay').innerText = '₹0.00';
+            return;
+        }
+
+        emptyNotice.style.display = 'none';
+        let subtotal = 0;
+        let html = '';
+
+        cart.forEach((item, idx) => {
+            const lineTotal = item.price * item.quantity;
+            subtotal += lineTotal;
+
+            html += `
+            <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                <div style="max-width: 55%;">
+                    <div class="fw-semibold text-truncate small">${item.name}</div>
+                    <div class="text-muted extra-small" style="font-size: 0.75rem;">
+                        ₹${item.price.toFixed(2)} &bull; ${item.sku}
+                        ${item.imei ? `<span class="badge bg-dark ms-1">IMEI: ${item.imei}</span>` : ''}
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary py-0 px-2" onclick="updateQty(${idx}, -1)">-</button>
+                        <span class="btn btn-light py-0 px-2 fw-bold" style="min-width: 28px;">${item.quantity}</span>
+                        <button class="btn btn-outline-secondary py-0 px-2" onclick="updateQty(${idx}, 1)">+</button>
+                    </div>
+                    <div class="fw-bold small text-end" style="min-width: 60px;">₹${lineTotal.toFixed(2)}</div>
+                    <button class="btn btn-link text-danger p-0 ms-1" onclick="removeItem(${idx})"><i class="bi bi-x"></i></button>
+                </div>
+            </div>`;
+        });
+
+        container.innerHTML = html;
+
+        const taxPercent = parseFloat(document.getElementById('taxPercent').value) || 0;
+        const discountAmount = parseFloat(document.getElementById('discountAmount').value) || 0;
+        const taxAmount = (subtotal * (taxPercent / 100));
+        const total = Math.max(0, subtotal + taxAmount - discountAmount);
+
+        document.getElementById('subtotalDisplay').innerText = `₹${subtotal.toFixed(2)}`;
+        document.getElementById('totalDisplay').innerText = `₹${total.toFixed(2)}`;
+    }
+
+    function searchCustomer(q) {
+        if (q.length < 3) return;
+        fetch(`/pos/api/customers/?q=${encodeURIComponent(q)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.customers && data.customers.length > 0) {
+                    const c = data.customers[0];
+                    selectedCustomer = c;
+                    document.getElementById('customerSelectedName').innerText = c.name;
+                    document.getElementById('customerSelectedPhone').innerText = c.phone;
+                    document.getElementById('customerSelectedBadge').classList.remove('d-none');
+                }
+            });
+    }
+
+    function clearSelectedCustomer() {
+        selectedCustomer = null;
+        document.getElementById('customerSelectedBadge').classList.add('d-none');
+        document.getElementById('customerPhoneSearch').value = '';
+    }
+
+    let customerModal;
+    function openAddCustomerModal() {
+        customerModal = new bootstrap.Modal(document.getElementById('modalAddCustomer'));
+        customerModal.show();
+    }
+
+    function saveNewCustomer() {
+        const name = document.getElementById('newCustName').value.trim();
+        const phone = document.getElementById('newCustPhone').value.trim();
+        const gstin = document.getElementById('newCustGstin').value.trim();
+        if (!name || !phone) {
+            alert("Name and phone are required");
+            return;
+        }
+
+        fetch('/pos/api/customers/add/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+            body: JSON.stringify({ name, phone, gstin })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                selectedCustomer = data.customer;
+                document.getElementById('customerSelectedName').innerText = data.customer.name;
+                document.getElementById('customerSelectedPhone').innerText = data.customer.phone;
+                document.getElementById('customerSelectedBadge').classList.remove('d-none');
+                customerModal.hide();
+            } else {
+                alert(data.error);
+            }
+        });
+    }
+
+    function parkCurrentSale() {
+        if (cart.length === 0) {
+            alert("Cart is empty! Nothing to park.");
+            return;
+        }
+        processCheckout('park');
+    }
+
+    function resumeHeldSale(saleId) {
+        fetch(`/pos/api/resume-held/${saleId}/`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const order = data.order;
+                    cart = order.items;
+                    document.getElementById('taxPercent').value = order.tax_percent;
+                    document.getElementById('discountAmount').value = order.discount_amount;
+                    if (order.customer_id) {
+                        selectedCustomer = { id: order.customer_id, name: order.customer_name, phone: order.customer_phone };
+                        document.getElementById('customerSelectedName').innerText = order.customer_name;
+                        document.getElementById('customerSelectedPhone').innerText = order.customer_phone;
+                        document.getElementById('customerSelectedBadge').classList.remove('d-none');
+                    }
+                    renderCart();
+                    alert(`Order resumed! Loaded ${cart.length} item(s).`);
+                }
+            });
+    }
+
+    function processCheckout(actionType = 'checkout') {
+        if (cart.length === 0) {
+            alert("Cart is empty! Add items first.");
+            return;
+        }
+
+        const btn = document.getElementById('btnCheckout');
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> ${actionType === 'park' ? 'Parking Sale...' : 'Processing Sale...'}`;
+
+        const payload = {
+            items: cart.map(i => ({ id: i.id, quantity: i.quantity, imei: i.imei || '' })),
+            action: actionType,
+            customer_id: selectedCustomer ? selectedCustomer.id : null,
+            customer_name: selectedCustomer ? selectedCustomer.name : 'Walk-in Customer',
+            customer_phone: selectedCustomer ? selectedCustomer.phone : '',
+            customer_gstin: selectedCustomer ? selectedCustomer.gstin : '',
+            payment_method: document.querySelector('input[name="paymentMethod"]:checked').value,
+            split_cash: parseFloat(document.getElementById('splitCashInput').value) || 0,
+            split_online: parseFloat(document.getElementById('splitOnlineInput').value) || 0,
+            tax_percent: parseFloat(document.getElementById('taxPercent').value) || 0,
+            discount_amount: parseFloat(document.getElementById('discountAmount').value) || 0,
+        };
+
+        fetch('/pos/api/checkout/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                cart = [];
+                renderCart();
+                if (actionType === 'park') {
+                    alert(`Order ${data.invoice_number} successfully parked!`);
+                    window.location.reload();
+                } else {
+                    window.location.href = data.receipt_url;
+                }
+            } else {
+                alert("Checkout error: " + (data.error || "Unknown error occurred"));
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-printer me-1"></i> Complete & Print Receipt';
+            }
+        })
+        .catch(err => {
+            alert("Network error: " + err);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-printer me-1"></i> Complete & Print Receipt';
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Invoice {{ sale.invoice_number }} - OmniStock POS{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        #printableReceipt, #printableReceipt * {
+            visibility: visible;
+        }
+        #printableReceipt {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            box-shadow: none !important;
+            border: none !important;
+        }
+        .no-print {
+            display: none !important;
+        }
+    }
+    .receipt-box {
+        max-width: 440px;
+        margin: 0 auto;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        font-family: 'Courier New', Courier, monospace;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-3">
+    <div class="d-flex justify-content-center gap-2 mb-3 no-print">
+        <a href="{% url 'pos:terminal' %}" class="btn btn-outline-primary">
+            <i class="bi bi-cart3 me-1"></i> Back to POS Register
+        </a>
+        <a href="{% url 'pos:sales_history' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-receipt me-1"></i> Sales History
+        </a>
+        <button class="btn btn-success fw-bold" onclick="window.print()">
+            <i class="bi bi-printer-fill me-1"></i> Print Tax Invoice
+        </button>
+    </div>
+
+    <div class="receipt-box p-4 border" id="printableReceipt">
+        <div class="text-center border-bottom pb-3 mb-3">
+            <h4 class="fw-bold mb-0 text-dark">OMNISTOCK RETAIL STORE</h4>
+            <div class="small text-muted">Smartphones, Computers & Electronics</div>
+            <div class="extra-small text-muted mt-1">TAX INVOICE / CASH MEMO</div>
+        </div>
+
+        <div class="small mb-3">
+            <div class="d-flex justify-content-between">
+                <span>INVOICE:</span>
+                <strong>{{ sale.invoice_number }}</strong>
+            </div>
+            <div class="d-flex justify-content-between">
+                <span>DATE:</span>
+                <span>{{ sale.created_at|date:"d-M-Y H:i" }}</span>
+            </div>
+            <div class="d-flex justify-content-between">
+                <span>CASHIER:</span>
+                <span>{{ sale.cashier.username|default:"Admin" }}</span>
+            </div>
+            <div class="d-flex justify-content-between">
+                <span>CUSTOMER:</span>
+                <strong>{{ sale.customer_name }}</strong>
+            </div>
+            {% if sale.customer_phone %}
+            <div class="d-flex justify-content-between">
+                <span>PHONE:</span>
+                <span>{{ sale.customer_phone }}</span>
+            </div>
+            {% endif %}
+            {% if sale.customer_gstin %}
+            <div class="d-flex justify-content-between">
+                <span>GSTIN:</span>
+                <span class="font-monospace">{{ sale.customer_gstin }}</span>
+            </div>
+            {% endif %}
+            <div class="d-flex justify-content-between">
+                <span>PAYMENT:</span>
+                <span class="badge bg-light text-dark border">{{ sale.get_payment_method_display }}</span>
+            </div>
+            {% if sale.payment_method == 'SPLIT' %}
+            <div class="d-flex justify-content-between extra-small text-muted">
+                <span>Cash: ₹{{ sale.split_cash_amount }}</span>
+                <span>Online: ₹{{ sale.split_online_amount }}</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <table class="table table-sm table-borderless small mb-3 border-top border-bottom py-2">
+            <thead>
+                <tr class="border-bottom">
+                    <th>ITEM & SPECS</th>
+                    <th class="text-center">QTY</th>
+                    <th class="text-end">RATE</th>
+                    <th class="text-end">TOTAL</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in sale.items.all %}
+                <tr>
+                    <td>
+                        <div class="fw-bold text-truncate" style="max-width: 170px;">{{ item.product_name }}</div>
+                        <div class="text-muted extra-small" style="font-size: 0.7rem;">
+                            SKU: {{ item.sku }}
+                            {% if item.imei %}<br><strong>IMEI: {{ item.imei }}</strong>{% endif %}
+                        </div>
+                    </td>
+                    <td class="text-center align-middle">{{ item.quantity }}</td>
+                    <td class="text-end align-middle">₹{{ item.unit_price|floatformat:2 }}</td>
+                    <td class="text-end align-middle fw-semibold">₹{{ item.line_total|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="small">
+            <div class="d-flex justify-content-between mb-1">
+                <span>SUBTOTAL:</span>
+                <span>₹{{ sale.subtotal|floatformat:2 }}</span>
+            </div>
+            {% if sale.tax_amount > 0 %}
+            <div class="d-flex justify-content-between mb-1 text-muted">
+                <span>CGST ({{ sale.tax_percent|floatformat:0 }}% / 2):</span>
+                <span>₹{{ sale.cgst_amount|floatformat:2 }}</span>
+            </div>
+            <div class="d-flex justify-content-between mb-1 text-muted">
+                <span>SGST ({{ sale.tax_percent|floatformat:0 }}% / 2):</span>
+                <span>₹{{ sale.sgst_amount|floatformat:2 }}</span>
+            </div>
+            {% endif %}
+            {% if sale.discount_amount > 0 %}
+            <div class="d-flex justify-content-between mb-1 text-danger">
+                <span>DISCOUNT:</span>
+                <span>-₹{{ sale.discount_amount|floatformat:2 }}</span>
+            </div>
+            {% endif %}
+            <div class="d-flex justify-content-between fw-bold fs-5 border-top pt-2 mt-2 text-dark">
+                <span>NET PAYABLE:</span>
+                <span>₹{{ sale.total_amount|floatformat:2 }}</span>
+            </div>
+        </div>
+
+        <div class="text-center border-top mt-4 pt-3 small text-muted">
+            <div class="fw-semibold">Thank you for your business!</div>
+            <div class="extra-small mt-1">Please preserve this invoice for device manufacturer warranty.</div>
+        </div>
+    </div>
+</div>
+{% endblock %}

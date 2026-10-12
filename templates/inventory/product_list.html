@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Inventory Catalog - OmniStock{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <div>
+        <h3 class="fw-bold mb-0 text-slate-800">Inventory Catalog</h3>
+        <p class="text-muted small mb-0">Manage stock levels, pricing, barcodes, and warehouse locations</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'inventory:import_csv' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-file-earmark-spreadsheet me-1"></i> Import / Export
+        </a>
+        <a href="{% url 'inventory:product_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i> Add Product
+        </a>
+    </div>
+</div>
+
+<!-- Stats Row -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3">
+        <div class="card card-custom p-3 bg-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted small fw-medium">Total Products</span>
+                    <h3 class="fw-bold mt-1 mb-0">{{ total_products }}</h3>
+                </div>
+                <div class="bg-primary-subtle text-primary p-3 rounded-circle">
+                    <i class="bi bi-boxes fs-4"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card card-custom p-3 bg-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted small fw-medium">Low Stock Alert</span>
+                    <h3 class="fw-bold mt-1 mb-0 text-danger">{{ low_stock_count }}</h3>
+                </div>
+                <div class="bg-danger-subtle text-danger p-3 rounded-circle">
+                    <i class="bi bi-exclamation-triangle-fill fs-4"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card card-custom p-3 bg-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted small fw-medium">Stock Cost Value</span>
+                    <h3 class="fw-bold mt-1 mb-0">₹{{ total_stock_value|floatformat:2|intcomma }}</h3>
+                </div>
+                <div class="bg-info-subtle text-info p-3 rounded-circle">
+                    <i class="bi bi-wallet2 fs-4"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card card-custom p-3 bg-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted small fw-medium">Retail Value</span>
+                    <h3 class="fw-bold mt-1 mb-0 text-success">₹{{ total_retail_value|floatformat:2|intcomma }}</h3>
+                </div>
+                <div class="bg-success-subtle text-success p-3 rounded-circle">
+                    <i class="bi bi-currency-rupee fs-4"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters & Search -->
+<div class="card card-custom p-3 mb-4 bg-white">
+    <form method="get" class="row g-2 align-items-center">
+        <div class="col-md-5">
+            <div class="input-group">
+                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="Search by name, SKU, barcode, brand...">
+            </div>
+        </div>
+        <div class="col-md-3">
+            <select name="category" class="form-select">
+                <option value="">All Categories</option>
+                {% for cat in categories %}
+                <option value="{{ cat.id }}" {% if selected_category == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select name="status" class="form-select">
+                <option value="">All Statuses</option>
+                <option value="Ready to Sell" {% if selected_status == 'Ready to Sell' %}selected{% endif %}>Ready to Sell</option>
+                <option value="Out of Stock" {% if selected_status == 'Out of Stock' %}selected{% endif %}>Out of Stock</option>
+                <option value="Damaged" {% if selected_status == 'Damaged' %}selected{% endif %}>Damaged</option>
+            </select>
+        </div>
+        <div class="col-md-2 d-flex gap-2">
+            <button type="submit" class="btn btn-dark w-100">Filter</button>
+            <a href="{% url 'inventory:product_list' %}" class="btn btn-outline-secondary">Reset</a>
+        </div>
+    </form>
+</div>
+
+<!-- Products Table -->
+<div class="card card-custom bg-white overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width: 50px;">Img</th>
+                    <th>Product & SKU</th>
+                    <th>Barcode</th>
+                    <th>Category</th>
+                    <th>Stock Qty</th>
+                    <th>Unit Cost</th>
+                    <th>Selling Price</th>
+                    <th>Status</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in products %}
+                <tr>
+                    <td>
+                        {% if p.image_url %}
+                        <img src="{{ p.image_url }}" alt="" class="rounded" style="width: 42px; height: 42px; object-fit: cover;">
+                        {% else %}
+                        <div class="bg-light rounded d-flex align-items-center justify-content-center text-muted" style="width: 42px; height: 42px;">
+                            <i class="bi bi-box"></i>
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'inventory:product_detail' p.pk %}" class="fw-bold text-dark text-decoration-none d-block">
+                            {{ p.name }}
+                        </a>
+                        <small class="text-muted">SKU: <span class="badge bg-light text-dark border">{{ p.sku }}</span> {% if p.brand %}&bull; {{ p.brand.name }}{% endif %}</small>
+                    </td>
+                    <td>
+                        {% if p.barcode %}
+                        <code class="text-secondary small">{{ p.barcode }}</code>
+                        {% else %}
+                        <span class="text-muted small">&mdash;</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge bg-secondary-subtle text-secondary">{{ p.category.name|default:"Uncategorized" }}</span>
+                    </td>
+                    <td>
+                        {% if p.quantity <= 0 %}
+                            <span class="badge bg-danger">Out of Stock (0)</span>
+                        {% elif p.is_low_stock %}
+                            <span class="badge bg-warning text-dark">{{ p.quantity }} {{ p.stock_unit }} (Low)</span>
+                        {% else %}
+                            <span class="badge bg-success-subtle text-success fw-semibold">{{ p.quantity }} {{ p.stock_unit }}</span>
+                        {% endif %}
+                    </td>
+                    <td>₹{{ p.unit_cost|floatformat:2 }}</td>
+                    <td class="fw-bold text-primary">₹{{ p.selling_price|floatformat:2 }}</td>
+                    <td>
+                        <span class="badge {% if p.status == 'Ready to Sell' %}bg-success{% else %}bg-secondary{% endif %} badge-pos">
+                            {{ p.status }}
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        <div class="btn-group btn-group-sm">
+                            <a href="{% url 'inventory:product_detail' p.pk %}" class="btn btn-outline-primary" title="View details & stock movements">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="{% url 'inventory:product_update' p.pk %}" class="btn btn-outline-secondary" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center py-5 text-muted">
+                        <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                        <h5>No products found</h5>
+                        <p class="small">Add a product or import your existing OmniStock CSV file.</p>
+                        <a href="{% url 'inventory:import_csv' %}" class="btn btn-primary btn-sm mt-2">Import OmniStock CSV</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

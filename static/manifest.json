@@ -1,0 +1,37 @@
+{
+  "name": "OmniStock POS & Inventory",
+  "short_name": "OmniStock",
+  "description": "OmniStock & Point of Sale Management Progressive Web App",
+  "start_url": "/pos/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "POS Register",
+      "url": "/pos/",
+      "description": "Open Cashier POS Register"
+    },
+    {
+      "name": "Inventory Catalog",
+      "url": "/inventory/",
+      "description": "Manage Inventory & Stock"
+    }
+  ]
+}
