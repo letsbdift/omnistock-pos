@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block title %}Liquidation Lots & Grading - OmniStock{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h4 class="fw-bold mb-0"><i class="bi bi-palette text-info me-2"></i> Liquidation Lots & Device Grading</h4>
+            <p class="text-muted small mb-0">Feature 6: Manages bulk pallet/lot acquisitions (Amazon, Flipkart) with unit-by-unit grading and parts salvage.</p>
+        </div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newLotModal">
+            <i class="bi bi-plus-lg me-1"></i> New Pallet Lot Intake
+        </button>
+    </div>
+
+    <div class="col-12">
+        <div class="card card-custom p-4 bg-white shadow-sm">
+            <h6 class="fw-bold mb-3">Bulk Pallet Lots</h6>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Lot Manifest ID</th>
+                            <th>Source Manifest #</th>
+                            <th>Vendor Source</th>
+                            <th>Manifest Date</th>
+                            <th>Total Lot Cost</th>
+                            <th>Unit Count</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for lot in lots %}
+                        <tr>
+                            <td class="fw-bold">{{ lot.lot_id }}</td>
+                            <td>{{ lot.source_manifest_id|default:"N/A" }}</td>
+                            <td>{{ lot.source_vendor.name|default:"Direct Liquidator" }}</td>
+                            <td>{{ lot.manifest_date }}</td>
+                            <td class="fw-bold text-danger">₹{{ lot.total_lot_cost }}</td>
+                            <td><span class="badge bg-secondary">{{ lot.unit_count }} units</span></td>
+                            <td><span class="badge bg-primary">{{ lot.get_status_display }}</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="7" class="text-center text-muted py-4">No liquidation lots logged yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: New Lot Intake -->
+<div class="modal fade" id="newLotModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'inventory:create_liquidation_lot' %}" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Intake Liquidation Pallet Lot</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Lot ID (e.g. LOT-AMZ-2026-01)</label>
+                    <input type="text" name="lot_id" class="form-control" placeholder="Leave blank for auto-generate">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Source Manifest Reference</label>
+                    <input type="text" name="source_manifest_id" class="form-control" placeholder="Vendor Pallet Manifest ID">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Liquidation Vendor</label>
+                    <select name="source_vendor" class="form-select">
+                        <option value="">-- Direct Liquidator --</option>
+                        {% for s in suppliers %}
+                        <option value="{{ s.id }}">{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">Total Lot Cost (₹)</label>
+                        <input type="number" step="0.01" name="total_lot_cost" class="form-control" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">Unit Count</label>
+                        <input type="number" name="unit_count" class="form-control" value="1" required>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Lot</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

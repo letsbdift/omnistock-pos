@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% block title %}Real-Time P&L Statement - OmniStock{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h4 class="fw-bold mb-0"><i class="bi bi-graph-up-arrow text-success me-2"></i> Real-Time Profit & Loss (P&L) Statement</h4>
+            <p class="text-muted small mb-0">Feature 12: Gross Revenue, COGS, Gross Profit, Operating Expenses & Net Operating Income.</p>
+        </div>
+        <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#newExpenseModal">
+            <i class="bi bi-dash-circle me-1"></i> Add Operating Overhead Expense
+        </button>
+    </div>
+
+    <!-- P&L Metric Cards -->
+    <div class="col-md-3">
+        <div class="card card-custom p-3 bg-white shadow-sm border-start border-4 border-primary">
+            <span class="text-muted small">Gross Revenue (Month)</span>
+            <h3 class="fw-bold text-dark mt-1">₹{{ gross_revenue }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-custom p-3 bg-white shadow-sm border-start border-4 border-warning">
+            <span class="text-muted small">Cost of Goods Sold (COGS)</span>
+            <h3 class="fw-bold text-dark mt-1">₹{{ total_cogs }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-custom p-3 bg-white shadow-sm border-start border-4 border-info">
+            <span class="text-muted small">Gross Profit</span>
+            <h3 class="fw-bold text-info mt-1">₹{{ gross_profit }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-custom p-3 bg-white shadow-sm border-start border-4 {% if net_operating_income >= 0 %}border-success{% else %}border-danger{% endif %}">
+            <span class="text-muted small">Net Operating Income</span>
+            <h3 class="fw-bold {% if net_operating_income >= 0 %}text-success{% else %}text-danger{% endif %} mt-1">₹{{ net_operating_income }}</h3>
+        </div>
+    </div>
+
+    <!-- Operating Overheads Ledger -->
+    <div class="col-12">
+        <div class="card card-custom p-4 bg-white shadow-sm">
+            <h6 class="fw-bold mb-3"><i class="bi bi-receipt me-1"></i> Operating Overhead Expenses (Non-COGS)</h6>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th>Amount</th>
+                            <th>Recorded By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for exp in operating_expenses %}
+                        <tr>
+                            <td>{{ exp.expense_date }}</td>
+                            <td><span class="badge bg-secondary">{{ exp.category }}</span></td>
+                            <td>{{ exp.description }}</td>
+                            <td class="fw-bold text-danger">₹{{ exp.amount }}</td>
+                            <td>{{ exp.recorded_by.username|default:"Admin" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-center text-muted py-3">No operating overheads logged for this period.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <th colspan="3" class="text-end">Total Overheads:</th>
+                            <th class="text-danger fw-bold">₹{{ total_operating_expenses }}</th>
+                            <th></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: New Overhead Expense -->
+<div class="modal fade" id="newExpenseModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'finance:add_operating_expense' %}" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Log Operating Overhead Expense</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Category</label>
+                    <select name="category" class="form-select" required>
+                        <option value="Rent">Store & Warehouse Rent</option>
+                        <option value="Salaries">Staff Salaries & Wages</option>
+                        <option value="Logistics">Logistics & Delivery</option>
+                        <option value="Utilities">Utilities & Electricity</option>
+                        <option value="Marketing">Marketing & Digital Ads</option>
+                        <option value="General Overheads">General Overheads & Maintenance</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Amount (₹)</label>
+                    <input type="number" step="0.01" name="amount" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Description / Invoice Reference</label>
+                    <textarea name="description" class="form-control" rows="2" required placeholder="e.g. Bandra store monthly rent invoice"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-danger">Record Expense</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -14,4 +14,13 @@ urlpatterns = [
     path('suppliers/', views.supplier_list_view, name='supplier_list'),
     path('import/', views.import_csv_view, name='import_csv'),
     path('export/', views.export_csv_view, name='export_csv'),
+    
+    # Feature 6: Liquidation Lots
+    path('lots/', views.liquidation_lots_view, name='liquidation_lots'),
+    path('lots/create/', views.create_liquidation_lot, name='create_liquidation_lot'),
+    
+    # Feature 7: Stock Shifts
+    path('shifts/', views.stock_shifts_view, name='stock_shifts'),
+    path('shifts/dispatch/', views.dispatch_stock_shift, name='dispatch_stock_shift'),
+    path('shifts/<int:pk>/receive/', views.receive_stock_shift, name='receive_stock_shift'),
 ]

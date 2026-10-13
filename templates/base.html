@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>{% block title %}OmniStock & POS{% endblock %}</title>
+    <title>{% block title %}OmniStock Enterprise POS & Inventory{% endblock %}</title>
 
     <!-- Progressive Web App (PWA) Meta & Manifest -->
     <link rel="manifest" href="/manifest.json">
@@ -33,6 +33,7 @@
         .navbar-custom .nav-link {
             color: #94a3b8;
             font-weight: 500;
+            font-size: 0.9rem;
         }
         .navbar-custom .nav-link:hover, .navbar-custom .nav-link.active {
             color: #ffffff;
@@ -50,10 +51,25 @@
         #pwaInstallBanner {
             display: none;
         }
+        .online-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            background-color: #22c55e;
+        }
+        .offline-dot {
+            background-color: #ef4444;
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+    <!-- Offline / Diagnostic Status Banner (Feature 16) -->
+    <div id="connectivityBanner" class="bg-warning text-dark py-1 px-3 small d-none text-center fw-bold">
+        <i class="bi bi-wifi-off me-1"></i> Offline Mode: Transactions will be saved locally and synced once connection resumes.
+    </div>
+
     <!-- PWA Install Banner -->
     <div id="pwaInstallBanner" class="bg-primary text-white py-2 px-3 shadow-sm">
         <div class="container-fluid d-flex justify-content-between align-items-center">
@@ -68,65 +84,98 @@
         </div>
     </div>
 
-    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom py-2 shadow-sm">
-        <div class="container-fluid px-4">
+    <nav class="navbar navbar-expand-xl navbar-dark navbar-custom py-2 shadow-sm">
+        <div class="container-fluid px-3">
             <a class="navbar-brand fw-bold text-white d-flex align-items-center gap-2" href="{% url 'pos:terminal' %}">
                 <i class="bi bi-box-seam-fill text-primary fs-4"></i>
-                <span>OmniStock <span class="badge bg-primary fs-6">POS</span></span>
+                <span>OmniStock <span class="badge bg-primary fs-6">ENTERPRISE</span></span>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navContent">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navContent">
                 {% if user.is_authenticated %}
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-3 gap-1">
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.app_name == 'inventory' and request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'inventory:dashboard' %}">
-                            <i class="bi bi-speedometer2 me-1"></i> Dashboard
-                        </a>
-                    </li>
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-2 gap-1">
+                    <!-- Standard Staff Navigation -->
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.app_name == 'pos' and request.resolver_match.url_name == 'terminal' %}active{% endif %}" href="{% url 'pos:terminal' %}">
                             <i class="bi bi-cart3 me-1"></i> POS Register
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.app_name == 'pos' and request.resolver_match.url_name == 'cash_register' %}active{% endif %}" href="{% url 'pos:cash_register' %}">
+                            <i class="bi bi-cash-stack me-1"></i> Cash Register
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.app_name == 'inventory' and request.resolver_match.url_name == 'product_list' %}active{% endif %}" href="{% url 'inventory:product_list' %}">
-                            <i class="bi bi-boxes me-1"></i> Inventory Catalog
+                            <i class="bi bi-boxes me-1"></i> Inventory
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.app_name == 'pos' and request.resolver_match.url_name == 'customer_list' %}active{% endif %}" href="{% url 'pos:customer_list' %}">
-                            <i class="bi bi-people me-1"></i> Customers
+                        <a class="nav-link {% if request.resolver_match.app_name == 'repair' %}active{% endif %}" href="{% url 'repair:ticket_list' %}">
+                            <i class="bi bi-tools me-1"></i> Repair Desk
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.app_name == 'pos' and request.resolver_match.url_name == 'sales_history' %}active{% endif %}" href="{% url 'pos:sales_history' %}">
-                            <i class="bi bi-receipt me-1"></i> Sales & Orders
+                        <a class="nav-link {% if request.resolver_match.url_name == 'returns_list' %}active{% endif %}" href="{% url 'pos:returns_list' %}">
+                            <i class="bi bi-arrow-return-left me-1"></i> Returns & Restock
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'barcode_labels' %}active{% endif %}" href="{% url 'inventory:barcode_labels' %}">
-                            <i class="bi bi-upc-scan me-1"></i> Barcodes
+                        <a class="nav-link {% if request.resolver_match.url_name == 'stock_shifts' %}active{% endif %}" href="{% url 'inventory:stock_shifts' %}">
+                            <i class="bi bi-arrow-left-right me-1"></i> Stock Shifts
                         </a>
                     </li>
+
+                    <!-- Enterprise Admin & Management Links -->
+                    {% if user.is_superuser or user.profile.is_admin %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle text-warning" href="#" data-bs-toggle="dropdown">
+                            <i class="bi bi-shield-check me-1"></i> Admin Portal
+                        </a>
+                        <ul class="dropdown-menu shadow">
+                            <li><a class="dropdown-item" href="{% url 'inventory:dashboard' %}"><i class="bi bi-speedometer2 me-2"></i>Executive Analytics</a></li>
+                            <li><a class="dropdown-item" href="{% url 'pos:override_requests' %}"><i class="bi bi-tags me-2"></i>Discount Approvals</a></li>
+                            <li><a class="dropdown-item" href="{% url 'inventory:liquidation_lots' %}"><i class="bi bi-palette me-2"></i>Liquidation Lots</a></li>
+                            <li><a class="dropdown-item" href="{% url 'finance:pl_statement' %}"><i class="bi bi-graph-up-arrow me-2"></i>P&L Statement</a></li>
+                            <li><a class="dropdown-item" href="{% url 'finance:ar_aging' %}"><i class="bi bi-receipt-cutoff me-2"></i>Accounts Receivable (AR)</a></li>
+                            <li><a class="dropdown-item" href="{% url 'finance:ap_aging' %}"><i class="bi bi-wallet2 me-2"></i>Accounts Payable (AP)</a></li>
+                            <li><a class="dropdown-item" href="{% url 'finance:gst_compliance' %}"><i class="bi bi-file-earmark-check me-2"></i>GST Returns & Filing</a></li>
+                            <li><a class="dropdown-item" href="{% url 'finance:audit_logs' %}"><i class="bi bi-clock-history me-2"></i>Immutable Audit Trail</a></li>
+                            <li><a class="dropdown-item" href="{% url 'inventory:barcode_labels' %}"><i class="bi bi-upc-scan me-2"></i>Barcode Studio</a></li>
+                            <li><a class="dropdown-item" href="{% url 'finance:backup_export' %}"><i class="bi bi-cloud-arrow-down me-2"></i>Backups & Exports</a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+
                     <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'import_csv' %}active{% endif %}" href="{% url 'inventory:import_csv' %}">
-                            <i class="bi bi-file-earmark-spreadsheet me-1"></i> Restock & Import
+                        <a class="nav-link {% if request.resolver_match.url_name == 'staff_rewards' %}active{% endif %}" href="{% url 'finance:staff_rewards' %}">
+                            <i class="bi bi-gift me-1"></i> Rewards
                         </a>
                     </li>
                 </ul>
-                <ul class="navbar-nav ms-auto align-items-center gap-3">
+
+                <ul class="navbar-nav ms-auto align-items-center gap-2">
+                    <li class="nav-item">
+                        <span class="badge bg-dark border text-light small d-flex align-items-center gap-1">
+                            <span class="online-dot" id="onlineIndicator"></span>
+                            <span id="connStateText">Online</span>
+                        </span>
+                    </li>
                     <li class="nav-item text-white-50 small">
                         <i class="bi bi-person-circle me-1 text-light"></i>
                         <span class="text-light fw-medium">{{ user.username }}</span>
                         {% if user.profile %}
                             <span class="badge bg-secondary ms-1">{{ user.profile.get_role_display }}</span>
+                            {% if user.profile.is_cash_handler %}
+                                <span class="badge bg-warning text-dark ms-1">Cash Custodian</span>
+                            {% endif %}
                         {% endif %}
                     </li>
                     <li class="nav-item">
-                        <a class="btn btn-outline-danger btn-sm" href="{% url 'accounts:logout' %}">
-                            <i class="bi bi-box-arrow-right me-1"></i> Logout
+                        <a class="btn btn-outline-danger btn-sm py-1" href="{% url 'accounts:logout' %}">
+                            <i class="bi bi-box-arrow-right"></i>
                         </a>
                     </li>
                 </ul>
@@ -159,16 +208,43 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- PWA Service Worker & Install Script -->
+    <!-- PWA & Connectivity Monitor -->
     <script>
         // Register Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/serviceworker.js', { scope: '/' })
-                    .then(reg => console.log('PWA ServiceWorker registered with scope:', reg.scope))
-                    .catch(err => console.log('ServiceWorker registration failed:', err));
+                    .then(reg => console.log('PWA ServiceWorker registered:', reg.scope))
+                    .catch(err => console.log('ServiceWorker error:', err));
             });
         }
+
+        // Feature 16: Network Connectivity Monitor
+        const connBanner = document.getElementById('connectivityBanner');
+        const onlineDot = document.getElementById('onlineIndicator');
+        const connText = document.getElementById('connStateText');
+
+        function updateOnlineStatus() {
+            if (navigator.onLine) {
+                if (connBanner) connBanner.classList.add('d-none');
+                if (onlineDot) {
+                    onlineDot.classList.remove('offline-dot');
+                    onlineDot.classList.add('online-dot');
+                }
+                if (connText) connText.textContent = 'Online';
+            } else {
+                if (connBanner) connBanner.classList.remove('d-none');
+                if (onlineDot) {
+                    onlineDot.classList.remove('online-dot');
+                    onlineDot.classList.add('offline-dot');
+                }
+                if (connText) connText.textContent = 'Offline';
+            }
+        }
+
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        updateOnlineStatus();
 
         // PWA Install Prompt handling
         let deferredPrompt;
@@ -189,7 +265,6 @@
                 if (deferredPrompt) {
                     deferredPrompt.prompt();
                     const { outcome } = await deferredPrompt.userChoice;
-                    console.log('User response to install prompt:', outcome);
                     deferredPrompt = null;
                 }
                 installBanner.style.display = 'none';
@@ -202,11 +277,6 @@
                 localStorage.setItem('pwa_dismissed', 'true');
             });
         }
-
-        window.addEventListener('appinstalled', () => {
-            console.log('OmniStock PWA successfully installed');
-            if (installBanner) installBanner.style.display = 'none';
-        });
     </script>
     {% block extra_js %}{% endblock %}
 </body>

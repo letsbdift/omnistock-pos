@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+{% block title %}Returns & Restock Desk - OmniStock{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h4 class="fw-bold mb-0"><i class="bi bi-arrow-return-left text-danger me-2"></i> Returns & Restock Desk</h4>
+            <p class="text-muted small mb-0">Two-phase Restock Authorization prevents uninspected/damaged goods from polluting active store stock.</p>
+        </div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newReturnModal">
+            <i class="bi bi-plus-lg me-1"></i> Log Customer Return
+        </button>
+    </div>
+
+    <div class="col-12">
+        <div class="card card-custom p-4 bg-white shadow-sm">
+            <h6 class="fw-bold mb-3">All Customer Return Records & Routing Dispositions</h6>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Return #</th>
+                            <th>Original Invoice</th>
+                            <th>Product / IMEI</th>
+                            <th>Condition</th>
+                            <th>Refund</th>
+                            <th>Staff Proposed Routing</th>
+                            <th>Admin Routing Decision</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in returns %}
+                        <tr>
+                            <td class="fw-bold">{{ r.return_number }}</td>
+                            <td>{{ r.original_sale.invoice_number }}</td>
+                            <td>
+                                <strong>{{ r.product.name }}</strong>
+                                {% if r.imei %}<br><span class="badge bg-light text-dark border">IMEI: {{ r.imei }}</span>{% endif %}
+                            </td>
+                            <td><span class="badge bg-secondary">{{ r.get_condition_assessment_display }}</span></td>
+                            <td class="fw-bold text-danger">₹{{ r.refund_amount }} <span class="small text-muted">({{ r.refund_method }})</span></td>
+                            <td>{{ r.get_staff_recommended_routing_display }}</td>
+                            <td>
+                                {% if r.status == 'restock_pending' %}
+                                    {% if is_admin %}
+                                    <form method="post" action="{% url 'pos:approve_restock_routing' r.id %}" class="d-flex gap-1 align-items-center">
+                                        {% csrf_token %}
+                                        <select name="admin_approved_routing" class="form-select form-select-sm" style="width:160px;">
+                                            <option value="return_to_resale">Return to Resale</option>
+                                            <option value="route_to_repair">Route to Repair Desk</option>
+                                            <option value="spare_parts_harvest">Spare Parts Harvest</option>
+                                            <option value="write_off_unsellable">Write-off Loss</option>
+                                        </select>
+                                        <button type="submit" class="btn btn-sm btn-success">Authorize</button>
+                                    </form>
+                                    {% else %}
+                                    <span class="text-muted fst-italic">Awaiting Admin Sign-off</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-info text-dark">{{ r.get_admin_approved_routing_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if r.status == 'restocked' %}
+                                    <span class="badge bg-success">Authorized & Restocked</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Pending Authorization</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="8" class="text-center text-muted py-4">No customer return records logged.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Log Customer Return -->
+<div class="modal fade" id="newReturnModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'pos:log_customer_return' %}" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Log Customer Return / Exchange</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Original Invoice # (REC-XXXX / INV-XXXX)</label>
+                    <input type="text" name="invoice_number" class="form-control" required placeholder="REC-YYYYMMDD-XXXX">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Product ID</label>
+                    <input type="number" name="product_id" class="form-control" required placeholder="Product DB ID">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Device IMEI / Serial (Optional)</label>
+                    <input type="text" name="imei" class="form-control" placeholder="15-digit IMEI">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Condition Assessment</label>
+                    <select name="condition_assessment" class="form-select">
+                        <option value="Ready-to-resell">Ready to Resell</option>
+                        <option value="Needs-repair">Needs Repair</option>
+                        <option value="Parts-missing-or-damaged">Parts Missing / Damaged</option>
+                        <option value="Damaged">Damaged / Beyond Repair</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">Refund Amount (₹)</label>
+                        <input type="number" step="0.01" name="refund_amount" class="form-control" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">Refund Tender</label>
+                        <select name="refund_method" class="form-select">
+                            <option value="Cash">Cash</option>
+                            <option value="UPI">UPI</option>
+                            <option value="Card">Card</option>
+                            <option value="Store Credit">Store Credit</option>
+                            <option value="Replacement">Replacement Unit</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Staff Recommended Restock Routing</label>
+                    <select name="staff_recommended_routing" class="form-select">
+                        <option value="return_to_resale">Return to Resale Inventory</option>
+                        <option value="route_to_repair">Route to Technical Repair Desk</option>
+                        <option value="spare_parts_harvest">Teardown for Spare Parts Salvage</option>
+                        <option value="write_off_unsellable">Write-off / Financial Loss Ledger</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Customer Reason for Return</label>
+                    <textarea name="customer_reason" class="form-control" rows="2" required placeholder="e.g. Display flicker issue within return window"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Submit Restock Proposal</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

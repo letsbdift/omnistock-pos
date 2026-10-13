@@ -25,6 +25,8 @@ urlpatterns = [
     path('accounts/', include('accounts.urls')),
     path('inventory/', include('inventory.urls')),
     path('pos/', include('pos.urls')),
+    path('repair/', include('repair.urls')),
+    path('finance/', include('finance.urls')),
     path('serviceworker.js', service_worker, name='serviceworker'),
     path('manifest.json', manifest_json, name='manifest'),
     path('offline/', offline_view, name='offline'),

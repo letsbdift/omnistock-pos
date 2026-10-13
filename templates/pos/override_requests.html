@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Discount Overrides & Profit Protection - OmniStock{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h4 class="fw-bold mb-0"><i class="bi bi-tags text-warning me-2"></i> Discount Override Review Dashboard</h4>
+            <p class="text-muted small mb-0">Feature 3: Executive Review with profit margin guardrails. Cost price is concealed from sales counters.</p>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="card card-custom p-4 bg-white shadow-sm">
+            <h6 class="fw-bold mb-3">Pending & Historical Price Override Requests</h6>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>REQ ID</th>
+                            <th>Cashier</th>
+                            <th>Product</th>
+                            <th>Standard Price</th>
+                            <th>Target Price</th>
+                            <th>Cost Price (Admin Only)</th>
+                            <th>Profit Impact</th>
+                            <th>Auth Code</th>
+                            <th>Status & Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in requests %}
+                        <tr class="{% if req.is_loss_making %}table-danger{% endif %}">
+                            <td class="fw-bold">{{ req.request_number }}</td>
+                            <td>{{ req.cashier.username }}</td>
+                            <td><strong>{{ req.product.name }}</strong></td>
+                            <td>₹{{ req.standard_price }}</td>
+                            <td class="fw-bold text-primary">₹{{ req.requested_price }}</td>
+                            <td><span class="badge bg-dark">₹{{ req.cost_price }}</span></td>
+                            <td>
+                                {% if req.is_loss_making %}
+                                    <span class="badge bg-danger">LOSS-MAKING (Below Cost)</span>
+                                {% else %}
+                                    <span class="text-danger">-₹{{ req.surrendered_profit }} profit</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if req.authorization_code %}
+                                    <code>{{ req.authorization_code }}</code>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if req.status == 'pending' %}
+                                <div class="d-flex gap-1">
+                                    <form method="post" action="{% url 'pos:handle_override_action' req.id %}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="approve">
+                                        <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                                    </form>
+                                    <form method="post" action="{% url 'pos:handle_override_action' req.id %}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="decline">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Decline</button>
+                                    </form>
+                                </div>
+                                {% else %}
+                                    <span class="badge bg-{% if req.status == 'approved' %}success{% else %}secondary{% endif %}">{{ req.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="9" class="text-center text-muted py-4">No discount override requests recorded.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

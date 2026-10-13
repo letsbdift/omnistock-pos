@@ -5,10 +5,11 @@ class ProductForm(forms.ModelForm):
     class Meta:
         model = Product
         fields = [
-            'name', 'product_code', 'sku', 'barcode', 'brand', 'category',
-            'lot_id', 'condition', 'status', 'warehouse_location',
+            'name', 'product_code', 'sku', 'barcode', 'hsn_code', 'brand', 'category',
+            'liquidation_lot', 'model_name', 'ram', 'rom', 'color', 'grade',
+            'condition', 'status', 'warehouse_location',
             'received_date', 'quantity', 'stock_unit',
-            'unit_cost', 'selling_price', 'mrp', 'gst_scheme',
+            'unit_cost', 'selling_price', 'mrp', 'wholesale_price', 'gst_scheme', 'gst_rate',
             'min_stock_alert_level', 'image_url', 'notes'
         ]
         widgets = {

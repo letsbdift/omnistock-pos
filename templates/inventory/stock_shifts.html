@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+{% block title %}Multi-Location Stock Shifts - OmniStock{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h4 class="fw-bold mb-0"><i class="bi bi-arrow-left-right text-primary me-2"></i> Multi-Location Stock Shifts</h4>
+            <p class="text-muted small mb-0">Feature 7: Two-step chain-of-custody transfer between central warehouse and retail branches.</p>
+        </div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#dispatchModal">
+            <i class="bi bi-box-arrow-right me-1"></i> Dispatch Stock Shift
+        </button>
+    </div>
+
+    <div class="col-12">
+        <div class="card card-custom p-4 bg-white shadow-sm">
+            <h6 class="fw-bold mb-3">All Active & Historical Stock Transfers</h6>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Shift #</th>
+                            <th>Product</th>
+                            <th>Origin Branch</th>
+                            <th>Destination Branch</th>
+                            <th>Dispatched Qty</th>
+                            <th>Received Qty</th>
+                            <th>Carrier & Tracking</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in shifts %}
+                        <tr>
+                            <td class="fw-bold">{{ s.shift_number }}</td>
+                            <td><strong>{{ s.product.name }}</strong> ({{ s.product.sku }})</td>
+                            <td>{{ s.from_location }}</td>
+                            <td>{{ s.to_location }}</td>
+                            <td><span class="badge bg-secondary">{{ s.dispatched_quantity }}</span></td>
+                            <td>{% if s.received_quantity %}<span class="badge bg-success">{{ s.received_quantity }}</span>{% else %}-{% endif %}</td>
+                            <td>{{ s.carrier_name|default:"Internal Courier" }} <br><span class="text-muted" style="font-size:0.75rem;">{{ s.tracking_number|default:"" }}</span></td>
+                            <td>
+                                {% if s.status == 'in_transit' %}
+                                    <span class="badge bg-warning text-dark"><i class="bi bi-truck me-1"></i> In-Transit</span>
+                                {% elif s.status == 'received' %}
+                                    <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i> Received & Stocked</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Discrepancy</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if s.status == 'in_transit' %}
+                                <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#receiveModal{{ s.id }}">
+                                    Receive Stock
+                                </button>
+
+                                <!-- Receive Modal -->
+                                <div class="modal fade" id="receiveModal{{ s.id }}" tabindex="-1">
+                                    <div class="modal-dialog">
+                                        <form method="post" action="{% url 'inventory:receive_stock_shift' s.id %}" class="modal-content">
+                                            {% csrf_token %}
+                                            <div class="modal-header">
+                                                <h6 class="modal-title fw-bold">Receive Stock Shipment: {{ s.shift_number }}</h6>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <p class="small text-muted">Verify physical quantity before receiving into destination branch inventory.</p>
+                                                <div class="mb-3">
+                                                    <label class="form-label small fw-bold">Physically Counted Quantity</label>
+                                                    <input type="number" name="received_quantity" class="form-control" value="{{ s.dispatched_quantity }}" required>
+                                                    <div class="form-text">Dispatched Quantity: {{ s.dispatched_quantity }} pcs</div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label small fw-bold">Discrepancy / Damage Notes (if any)</label>
+                                                    <textarea name="discrepancy_notes" class="form-control" rows="2" placeholder="e.g. 1 box damaged during transit"></textarea>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                                                <button type="submit" class="btn btn-success btn-sm">Confirm & Receive</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                                {% else %}
+                                    <span class="text-muted small">Completed</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="9" class="text-center text-muted py-4">No stock shifts found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Dispatch Shift -->
+<div class="modal fade" id="dispatchModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'inventory:dispatch_stock_shift' %}" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Dispatch Stock Shift</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Product</label>
+                    <select name="product_id" class="form-select" required>
+                        {% for p in products %}
+                        <option value="{{ p.id }}">{{ p.name }} ({{ p.sku }}) - In Stock: {{ p.quantity }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">Origin Location</label>
+                        <select name="from_location" class="form-select">
+                            <option value="Mumbai Bandra">Mumbai Bandra</option>
+                            <option value="Delhi Connaught">Delhi Connaught</option>
+                            <option value="Bengaluru Koramangala">Bengaluru Koramangala</option>
+                            <option value="Main Central Warehouse">Main Central Warehouse</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">Destination Branch</label>
+                        <select name="to_location" class="form-select">
+                            <option value="Delhi Connaught">Delhi Connaught</option>
+                            <option value="Mumbai Bandra">Mumbai Bandra</option>
+                            <option value="Bengaluru Koramangala">Bengaluru Koramangala</option>
+                            <option value="Main Central Warehouse">Main Central Warehouse</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Quantity to Dispatch</label>
+                    <input type="number" name="quantity" class="form-control" value="1" min="1" required>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">Carrier / Driver</label>
+                        <input type="text" name="carrier_name" class="form-control" placeholder="e.g. BlueDart / Store Van">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">AWB / Tracking #</label>
+                        <input type="text" name="tracking_number" class="form-control" placeholder="Tracking reference">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Dispatch Shipment</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

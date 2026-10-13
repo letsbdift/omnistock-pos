@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block title %}GST Returns & Compliance - OmniStock{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h4 class="fw-bold mb-0"><i class="bi bi-file-earmark-check text-success me-2"></i> Indian GST Compliance, GSTR-1, 3B & Period Lock</h4>
+            <p class="text-muted small mb-0">Feature 11: Standard B2B/B2C + Rule 32(5) Margin Scheme calculation with government ARN locking.</p>
+        </div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#lockModal">
+            <i class="bi bi-lock-fill me-1"></i> Lock Period & Record ARN
+        </button>
+    </div>
+
+    <!-- Active Month Aggregate Cards -->
+    <div class="col-md-3">
+        <div class="card card-custom p-3 bg-white shadow-sm border-start border-4 border-primary">
+            <span class="text-muted small">GSTR-1 B2B Taxable Value</span>
+            <h4 class="fw-bold text-dark mt-1">₹{{ b2b_taxable }}</h4>
+            <span class="small text-muted">Tax: ₹{{ b2b_tax }}</span>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-custom p-3 bg-white shadow-sm border-start border-4 border-info">
+            <span class="text-muted small">GSTR-1 B2C Outward Supplies</span>
+            <h4 class="fw-bold text-dark mt-1">₹{{ b2c_taxable }}</h4>
+            <span class="small text-muted">Tax: ₹{{ b2c_tax }}</span>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-custom p-3 bg-white shadow-sm border-start border-4 border-success">
+            <span class="text-muted small">Eligible ITC (Vendor Purchases)</span>
+            <h4 class="fw-bold text-success mt-1">₹{{ eligible_itc }}</h4>
+            <span class="small text-muted">GSTR-3B Table 4</span>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-custom p-3 bg-white shadow-sm border-start border-4 border-danger">
+            <span class="text-muted small">Net Cash Tax Payable</span>
+            <h4 class="fw-bold text-danger mt-1">₹{{ net_cash_tax }}</h4>
+            <span class="small text-muted">Liability minus Eligible ITC</span>
+        </div>
+    </div>
+
+    <!-- Filing History & Locked Periods -->
+    <div class="col-12">
+        <div class="card card-custom p-4 bg-white shadow-sm">
+            <h6 class="fw-bold mb-3"><i class="bi bi-archive me-1"></i> Locked Tax Periods & Government ARNs</h6>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Period Name</th>
+                            <th>Date Range</th>
+                            <th>Government ARN</th>
+                            <th>Status</th>
+                            <th>Locked By</th>
+                            <th>Filing Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in periods %}
+                        <tr>
+                            <td class="fw-bold">{{ p.period_name }}</td>
+                            <td>{{ p.start_date }} to {{ p.end_date }}</td>
+                            <td><code>{{ p.arn_number|default:"Not Filed" }}</code></td>
+                            <td>
+                                {% if p.status == 'locked_and_filed' %}
+                                    <span class="badge bg-success"><i class="bi bi-lock-fill me-1"></i> Locked & Filed</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Open</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ p.locked_by.username|default:"System" }}</td>
+                            <td>{{ p.amendment_notes|default:"-" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="text-center text-muted py-4">No historical tax periods locked yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Lock Period & Record ARN -->
+<div class="modal fade" id="lockModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'finance:lock_gst_period' %}" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Lock Period & Record Filing ARN</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning small">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i> Locking a period prevents retroactive edits to invoices within this calendar month.
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Tax Period Name</label>
+                    <input type="text" name="period_name" class="form-control" value="October 2026" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Government ARN (Acknowledgement Reference Number)</label>
+                    <input type="text" name="arn_number" class="form-control" placeholder="e.g. AA2709260018921" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Filing / Amendment Notes</label>
+                    <textarea name="amendment_notes" class="form-control" rows="2" placeholder="Notes on reconciliation or portal upload confirmation"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-success">Lock & Record ARN</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

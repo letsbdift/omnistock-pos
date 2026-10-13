@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% block title %}Repair Service Desk - OmniStock{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h4 class="fw-bold mb-0"><i class="bi bi-tools text-primary me-2"></i> Repair Service Desk & Warranty Management</h4>
+            <p class="text-muted small mb-0">Feature 4: Device intake, warranty classification, diagnostic ticketing, and inventory spare parts consumption.</p>
+        </div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newTicketModal">
+            <i class="bi bi-plus-lg me-1"></i> New Repair Ticket (REP)
+        </button>
+    </div>
+
+    <div class="col-12">
+        <div class="card card-custom p-4 bg-white shadow-sm">
+            <h6 class="fw-bold mb-3">All Active & Historical Service Tickets</h6>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Ticket #</th>
+                            <th>Customer</th>
+                            <th>Device & Model</th>
+                            <th>IMEI / Serial</th>
+                            <th>Warranty Type</th>
+                            <th>Reported Issue</th>
+                            <th>Stage</th>
+                            <th>Total Billed</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in tickets %}
+                        <tr>
+                            <td class="fw-bold">{{ t.ticket_number }}</td>
+                            <td>{{ t.customer_name }} <br><span class="text-muted" style="font-size:0.75rem;">{{ t.customer_phone }}</span></td>
+                            <td><strong>{{ t.brand_name }}</strong> {{ t.model_name }}</td>
+                            <td><code>{{ t.imei_or_serial }}</code></td>
+                            <td>
+                                {% if t.warranty_type == 'brand_authorized' %}
+                                    <span class="badge bg-info text-dark">Brand In-Warranty</span>
+                                {% elif t.warranty_type == 'store_warranty' %}
+                                    <span class="badge bg-secondary">Store Warranty</span>
+                                {% else %}
+                                    <span class="badge bg-dark">Paid Out-of-Warranty</span>
+                                {% endif %}
+                            </td>
+                            <td style="max-width:200px;" class="text-truncate">{{ t.reported_issue }}</td>
+                            <td><span class="badge bg-primary">{{ t.get_stage_display }}</span></td>
+                            <td class="fw-bold text-success">₹{{ t.total_billed }}</td>
+                            <td>
+                                <a href="{% url 'repair:ticket_detail' t.id %}" class="btn btn-sm btn-outline-primary">Manage</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="9" class="text-center text-muted py-4">No repair tickets in queue.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: New Repair Ticket -->
+<div class="modal fade" id="newTicketModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form method="post" action="{% url 'repair:create_ticket' %}" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Create Device Intake Ticket</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">Customer Name</label>
+                        <input type="text" name="customer_name" class="form-control" required placeholder="Full Name">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">Customer Phone</label>
+                        <input type="text" name="customer_phone" class="form-control" required placeholder="Phone Number">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label small fw-bold">Device Type</label>
+                        <select name="device_type" class="form-select">
+                            <option value="Smartphone">Smartphone</option>
+                            <option value="Tablet">Tablet</option>
+                            <option value="Laptop">Laptop</option>
+                            <option value="Smartwatch">Smartwatch</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label small fw-bold">Brand</label>
+                        <input type="text" name="brand_name" class="form-control" required placeholder="e.g. Apple / Samsung">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label small fw-bold">Model</label>
+                        <input type="text" name="model_name" class="form-control" required placeholder="e.g. iPhone 14 Pro">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">IMEI / Serial Number</label>
+                        <input type="text" name="imei_or_serial" class="form-control" required placeholder="15-digit IMEI or Serial">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">Lock Passcode / Pattern (Optional)</label>
+                        <input type="text" name="lock_passcode" class="form-control" placeholder="Device unlock PIN">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">Warranty Classification</label>
+                        <select name="warranty_type" class="form-select">
+                            <option value="out_of_warranty">Out-of-Warranty (Paid Service & Parts)</option>
+                            <option value="brand_authorized">Brand Authorized (In-Warranty, Free to Customer)</option>
+                            <option value="store_warranty">OmniStock Store Warranty (Free guarantee)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">Initial Labor Charge (₹)</label>
+                        <input type="number" step="0.01" name="labor_charge" class="form-control" value="0.00">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Reported Issue & Physical Condition</label>
+                    <textarea name="reported_issue" class="form-control" rows="2" required placeholder="e.g. Broken display, touch not responsive after drop"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Generate Repair Ticket</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

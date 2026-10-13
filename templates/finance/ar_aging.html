@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% block title %}Accounts Receivable (AR) & Credit - OmniStock{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h4 class="fw-bold mb-0"><i class="bi bi-receipt-cutoff text-primary me-2"></i> Accounts Receivable (AR) & Credit Management</h4>
+            <p class="text-muted small mb-0">Feature 9: B2B Wholesale CRM, Credit Limits, Overdue Aging Buckets, and Payment Ingestion.</p>
+        </div>
+        <div class="text-end">
+            <span class="text-muted small d-block">Total Outstanding AR:</span>
+            <span class="fs-4 fw-bold text-danger">₹{{ total_receivable }}</span>
+        </div>
+    </div>
+
+    <!-- Wholesale Customers Credit Summary -->
+    <div class="col-12">
+        <div class="card card-custom p-4 bg-white shadow-sm mb-4">
+            <h6 class="fw-bold mb-3"><i class="bi bi-people me-1"></i> B2B Wholesale Customers & Credit Standing</h6>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Customer Name</th>
+                            <th>Phone</th>
+                            <th>GSTIN</th>
+                            <th>Credit Limit</th>
+                            <th>Outstanding Balance</th>
+                            <th>Available Credit</th>
+                            <th>Payment Terms</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in wholesale_customers %}
+                        <tr>
+                            <td class="fw-bold">{{ c.name }}</td>
+                            <td>{{ c.phone }}</td>
+                            <td><code>{{ c.gstin|default:"Unregistered" }}</code></td>
+                            <td>₹{{ c.credit_limit }}</td>
+                            <td class="fw-bold text-danger">₹{{ c.outstanding_balance }}</td>
+                            <td class="fw-bold text-success">₹{{ c.available_credit }}</td>
+                            <td><span class="badge bg-secondary">{{ c.credit_terms_days }} Days</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="7" class="text-center text-muted py-3">No B2B wholesale accounts found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- AR Aging Ledger -->
+        <div class="card card-custom p-4 bg-white shadow-sm">
+            <h6 class="fw-bold mb-3"><i class="bi bi-calendar-event me-1"></i> Overdue Invoices & AR Aging Ledger</h6>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Invoice #</th>
+                            <th>Customer</th>
+                            <th>Due Date</th>
+                            <th>Aging Bucket</th>
+                            <th>Invoice Total</th>
+                            <th>Balance Due</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inv in invoices %}
+                        <tr>
+                            <td class="fw-bold">{{ inv.invoice_number }}</td>
+                            <td>{{ inv.customer.name }}</td>
+                            <td>{{ inv.due_date }}</td>
+                            <td><span class="badge bg-warning text-dark">{{ inv.aging_bucket }}</span></td>
+                            <td>₹{{ inv.total_amount }}</td>
+                            <td class="fw-bold text-danger">₹{{ inv.balance_due }}</td>
+                            <td>
+                                {% if inv.status == 'paid' %}
+                                    <span class="badge bg-success">Paid in Full</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Unpaid</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if inv.status != 'paid' %}
+                                <form method="post" action="{% url 'finance:record_ar_payment' inv.id %}" class="d-flex gap-1">
+                                    {% csrf_token %}
+                                    <input type="number" step="0.01" name="payment_amount" class="form-control form-control-sm" value="{{ inv.balance_due }}" style="width:100px;" required>
+                                    <button type="submit" class="btn btn-sm btn-success">Pay</button>
+                                </form>
+                                {% else %}
+                                    <span class="text-muted small">Settled</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="8" class="text-center text-muted py-3">No AR invoices logged.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
